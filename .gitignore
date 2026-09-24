@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Ambiente virtual
+.venv/
+
+# Segredos
+.env
+config/credentials/*.json
+
+# Dados e saídas locais
+data/raw/*
+data/processed/*
+logs/*
+outputs/*
+!**/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints/

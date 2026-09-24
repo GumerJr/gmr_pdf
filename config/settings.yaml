@@ -1,0 +1,55 @@
+# =============================================================================
+# Configurações não sensíveis do projeto gmr_pdf
+# Segredos e identificadores ficam no .env (não versionado)
+# =============================================================================
+
+app:
+  name: "gmr_pdf"
+  version: "0.1.0"
+  environment: "development"
+
+google_drive:
+  api_service: "drive"
+  api_version: "v3"
+  scopes:
+    - "https://www.googleapis.com/auth/drive.readonly"
+  download_chunk_size_bytes: 10485760  # 10 MB (múltiplo de 256 KB, exigido pela API)
+  list_page_size: 100
+
+logging:
+  level: "INFO"
+  timezone: "America/Sao_Paulo"  # UTC-3
+  date_format: "%Y-%m-%d %H:%M:%S %z"
+
+spatial:
+  profile_resolution_pt: 1.0  # resolução da varredura de projeção, em pontos
+  row_band_factor: 0.15       # tolerância p/ agrupar baselines na mesma linha (× altura mediana do span)
+  cell_join_tokens:           # célula == token funde com a célula seguinte (ex.: "R$" + "5,20")
+    - "R$"
+
+semantic:
+  # Rótulos do domínio (tabelas de frete) fundidos pelo Excel em um único span;
+  # a geometria não os separa (gap zero), mas o vocabulário sim.
+  labels:
+    - "TIPO DE VEÍCULO"
+    - "CIDADE"
+    - "SIGLA"
+    - "CEP INICIAL"
+    - "CEP FINAL"
+    - "INTERIORIZAÇÃO"
+    - "PRAZO"
+    - "DIÁRIA"
+  # Padrão dos rótulos de faixa escalonada (valores variam por tabela)
+  tier_label_pattern: '(?i)(?:De\s+\d+(?:[.,]\d+)?\s+até\s+\d+(?:[.,]\d+)?|Acima\s+de\s+\d+(?:[.,]\d+)?)'
+
+freight:
+  # Mapeamento label de cabeçalho -> campo canônico do registro (prefixo, case-insensitive)
+  field_map:
+    "TIPO DE VEÍCULO": "tipo_veiculo"
+    "CIDADE": "cidade"
+    "SIGLA": "sigla"
+    "CEP INICIAL": "cep_inicial"
+    "CEP FINAL": "cep_final"
+    "INTERIORIZAÇÃO": "interiorizacao"
+    "PRAZO": "prazo"
+    "DIÁRIA": "diaria"
