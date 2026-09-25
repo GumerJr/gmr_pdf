@@ -156,10 +156,11 @@ def test_parse_transportador_both_patterns() -> None:
     """Preâmbulo: chave|valor na linha E chave sozinha com valor abaixo."""
     grids = extract_grids(extract_document(_doc_completo_pdf_bytes()))
     grid = grids[0]
-    # cabeçalho está na última linha antes dos dados (row com labels)
-    from gmr_pdf.freight import _find_header_row, _load_field_map
+    from gmr_pdf.freight import _find_header_row
+    from gmr_pdf.profile import load_family_profile
 
-    header_row = _find_header_row(grid, tuple(_load_field_map()))
+    profile = load_family_profile()
+    header_row = _find_header_row(grid, tuple(profile.field_map))
     dados = parse_transportador(grid, header_row[0].row_index)
 
     assert dados.modalidade_operacao == "LAST MILE"

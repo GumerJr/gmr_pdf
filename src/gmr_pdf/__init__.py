@@ -29,6 +29,11 @@ from gmr_pdf.json_export import (
     tables_payload,
     to_json,
 )
+from gmr_pdf.profile import (
+    FamilyProfile,
+    detect_family,
+    load_family_profile,
+)
 from gmr_pdf.renderer import reconstruct_document
 from gmr_pdf.settings import Settings, get_settings
 from gmr_pdf.spatial import TableGrid, extract_grids
@@ -39,6 +44,7 @@ __all__ = [
     "BlockData",
     "DadosTransportador",
     "DocumentData",
+    "FamilyProfile",
     "FreightRecord",
     "FreightTable",
     "Generalidades",
@@ -50,12 +56,14 @@ __all__ = [
     "SpansVector",
     "TabelaFrete",
     "TableGrid",
+    "detect_family",
     "extract_document",
     "extract_grids",
     "extract_page",
     "extraction_payload",
     "get_drive_client",
     "get_settings",
+    "load_family_profile",
     "parse_alteracoes",
     "parse_freight_grid",
     "parse_generalidades",

@@ -1,6 +1,7 @@
 # =============================================================================
 # Configurações não sensíveis do projeto gmr_pdf
 # Segredos e identificadores ficam no .env (não versionado)
+# Domínio das famílias de tabelas: config/families/<nome>.yaml
 # =============================================================================
 
 app:
@@ -24,68 +25,6 @@ logging:
 spatial:
   profile_resolution_pt: 1.0  # resolução da varredura de projeção, em pontos
   row_band_factor: 0.15       # tolerância p/ agrupar baselines na mesma linha (× altura mediana do span)
-  cell_join_tokens:           # célula == token funde com a célula seguinte (ex.: "R$" + "5,20")
-    - "R$"
-
-semantic:
-  # Rótulos do domínio (tabelas de frete) fundidos pelo Excel em um único span;
-  # a geometria não os separa (gap zero), mas o vocabulário sim.
-  labels:
-    - "TIPO DE VEÍCULO"
-    - "CIDADE"
-    - "SIGLA"
-    - "CEP INICIAL"
-    - "CEP FINAL"
-    - "INTERIORIZAÇÃO"
-    - "PRAZO"
-    - "DIÁRIA"
-  # Padrão dos rótulos de faixa escalonada (valores variam por tabela)
-  tier_label_pattern: '(?i)(?:De\s+\d+(?:[.,]\d+)?\s+até\s+\d+(?:[.,]\d+)?|Acima\s+de\s+\d+(?:[.,]\d+)?)'
 
 freight:
-  # Mapeamento label de cabeçalho -> campo canônico do registro (prefixo, case-insensitive)
-  field_map:
-    "TIPO DE VEÍCULO": "tipo_veiculo"
-    "CIDADE": "cidade"
-    "SIGLA": "sigla"
-    "CEP INICIAL": "cep_inicial"
-    "CEP FINAL": "cep_final"
-    "INTERIORIZAÇÃO": "interiorizacao"
-    "PRAZO": "prazo"
-    "DIÁRIA": "diaria"
-  # Preâmbulo: chaves visuais -> campos de dados_transportador
-  transportador_map:
-    "MODALIDADE DA OPERAÇÃO": "modalidade_operacao"
-    "OPERAÇÃO": "operacao"
-    "SIGLA": "sigla"
-    "RAZÃO SOCIAL": "razao_social"
-    "CNPJ": "cnpj"
-    "TELEFONE DO PARCEIRO": "telefone"
-    "E-MAIL DO PARCEIRO": "email"
-    "INICIO DA VIGÊNCIA": "inicio_vigencia"
-    "EMAIL DE QUEM CONFECCIONOU": "responsavel_confeccao"
-    "ID TABELA": "id_tabela"
-  # Seção "ALTERAÇÕES DA TABELA" (pode estar em qualquer página)
-  alteracoes:
-    marker: "ALTERAÇÕES DA TABELA"
-    map:
-      "CD": "cd"
-      "NOME DO ANALISTA": "nome_analista"
-      "DATA ALTERAÇÃO": "data_alteracao"
-      "TIPO ALTERAÇÃO": "tipo_alteracao"
-      "TIPO OPERÇÃO": "tipo_operacao"  # grafia conforme vem nos documentos
-  # Cláusulas/generalidades: seções por marcador de coluna ou startswith
-  generalidades:
-    # encerram seções abertas: início do bloco de assinaturas + cláusula
-    # final de conformidade eletrônica (não pertence a nenhuma seção)
-    stop_prefixes: ["CONTRATADA", "EM CONFORMIDADE COM A LEGISLAÇÃO"]
-    junk_prefixes: ["DOCUSIGN"]     # ruído ignorado (cabeçalho de envelope)
-    secoes:
-      pagamento:
-        startswith: ["QUINZENAL", "PAGAMENTO VÁLIDO"]
-      comprovante_entrega:
-        marker: "COMPROVANTE DE ENTREGA"
-      perda_idenizacao_restricao:
-        marker: "PERDAS, INDENIZAÇÕES e RESTRIÇÕES"
-      acareacoes:
-        marker: "ACAREAÇÕES"
+  default_family: "magalu_escalonada"  # perfil default; outras famílias em config/families/

@@ -60,7 +60,8 @@ notas fiscais) e contínuos (procedimentos operacionais, políticas, relatórios
 | `logger.py` | Logging centralizado (UTC-3 Brasília, colorama, config no YAML) | ✅ Concluído |
 | `spatial.py` | Grid invisível: linhas por clustering de baseline + células por span (sem bordas/alinhamento global); normalização de rotação; join de tokens (`R$`+valor) | ✅ Concluído (Estágio 1) |
 | `semantic.py` | Separação de rótulos fundidos pelo Excel (gaps zero → indivisível por geometria) via vocabulário do domínio configurável (YAML) | ✅ Concluído |
-| `freight.py` | Registros tipados `FreightRecord` (pydantic): cabeçalho por vocabulário, faixas por ordem, ambiguidades por centro geométrico, proveniência page/row | ✅ Concluído |
+| `freight.py` | Domínio: `TabelaFrete` completa (transportador + tarifa + alterações + cláusulas). 100% dirigido por perfil | ✅ Concluído |
+| `profile.py` | **Perfis de família** (`config/families/*.yaml`): vocabulário, mapas, padrão de dinheiro, política de faixas, assinatura de linha; auto-detecção por score de marcadores | ✅ Concluído |
 | `models.py` + `json_export.py` | Schemas pydantic + exportação JSON (nível 1 bruto / nível 2 grids) | ✅ Concluído |
 
 ### 2.1 Camada 2 — Estratégia em estágios: "heurística primeiro, ML quando conquistado"
@@ -113,6 +114,7 @@ representação de entrada da camada ML: nós=spans (features do
 | **SoA vetorizado (NumPy) na fronteira extração→espacial** | Filtragens/máscaras/histogramas/clusters sem loop Python no hot path; arrays prontos como features de ML | Duas representações de span (objeto ↔ array) — mitigado por conversão unidirecional única em `vectorize.py` |
 | **Grafos fora do núcleo de reconstrução** | Posição = identidade (geometria absoluta já resolvida pelo MuPDF); grafo só para união de tabelas entre páginas (R5) e entrada da camada ML | União cross-page de tabelas adiada para Fase 2 |
 | **Zero caixas-pretas** | Nenhum modelo pré-treinado externo; ML, se necessário, será white-box (scikit-learn interpretável) treinado sobre vetores próprios | Escaneados (R1) são rejeitados, não processados via OCR |
+| **Resiliência por perfis de família** | Domínio 100% em YAML (`config/families/`); assinatura de linha de dados derivada do cabeçalho (auto); 3 padrões de preâmbulo KV (mesma linha, linha seguinte, inline `CHAVE: valor`); política de valor único (`fanout`); ética de ausência explícita (`None`) | Novas famílias exigem vocabulário próprio (o gap-zero de rótulos é insolúvel por geometria — medido) |
 
 ---
 

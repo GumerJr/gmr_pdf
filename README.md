@@ -48,6 +48,26 @@ outputs/       artefatos gerados (JSON/CSV/PDF reconstruído)
 docs/          arquitetura.md
 ```
 
+## Famílias de tabelas (resiliência por perfil)
+
+Todo o vocabulário e regras de domínio vivem em **`config/families/<nome>.yaml`** —
+nunca no código. Cada perfil define: rótulos do cabeçalho, padrão de faixas,
+mapeamento label→campo, assinatura de linha de dados (`auto`/`cep_pairs`/`money`),
+padrão de dinheiro, política de valor único (`fanout`/`first`), mapa do preâmbulo,
+seção de alterações e seções de cláusulas (marcador, stop, junk).
+
+```bash
+# auto-detecção por marcadores (default: freight.default_family)
+uv run python scripts/extract_freight_table.py
+
+# seleção explícita de família
+uv run python scripts/extract_freight_table.py <file_id> --familia magalu_escalonada
+```
+
+Nova família = **um arquivo YAML novo**, zero código. Três padrões de preâmbulo
+suportados: `CHAVE | VALOR`, chave sozinha + valor na linha seguinte e
+`CHAVE: valor` inline.
+
 ## Configuração
 
 Pré-requisitos: [`uv`](https://docs.astral.sh/uv/) e Python 3.14+.
@@ -143,7 +163,7 @@ linhas de dados nunca entram em cláusulas; cláusulas fluem entre páginas.
 
 ```bash
 uv run ruff check src scripts tests   # linter (regras ANN/RUF/UP/B/SIM/C4)
-uv run pytest                         # 49 testes
+uv run pytest                         # 58 testes
 ```
 
 ## Princípios

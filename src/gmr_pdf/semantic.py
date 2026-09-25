@@ -19,29 +19,12 @@ import re
 from dataclasses import dataclass
 from itertools import pairwise
 
-import yaml
-
 from gmr_pdf.extractor import BBox
 from gmr_pdf.logger import get_logger
-from gmr_pdf.settings import SETTINGS_FILE
+from gmr_pdf.profile import FamilyProfile, load_family_profile
 from gmr_pdf.spatial import Cell, TableGrid
 
 logger = get_logger(__name__)
-
-_DEFAULT_LABELS: tuple[str, ...] = (
-    "TIPO DE VEÍCULO",
-    "CIDADE",
-    "SIGLA",
-    "CEP INICIAL",
-    "CEP FINAL",
-    "INTERIORIZAÇÃO",
-    "PRAZO",
-    "DIÁRIA",
-)
-_DEFAULT_TIER_PATTERN = (
-    r"(?:De\s+\d+(?:[.,]\d+)?\s+até\s+\d+(?:[.,]\d+)?"
-    r"|Acima\s+de\s+\d+(?:[.,]\d+)?)"
-)
 
 
 @dataclass(frozen=True)
@@ -52,21 +35,10 @@ class SemanticConfig:
     tier_pattern: re.Pattern[str]
 
 
-def load_semantic_config() -> SemanticConfig:
-    """Lê a seção ``semantic`` do settings.yaml (com defaults seguros)."""
-    labels = _DEFAULT_LABELS
-    tier = _DEFAULT_TIER_PATTERN
-    try:
-        with SETTINGS_FILE.open(encoding="utf-8") as fh:
-            data = yaml.safe_load(fh) or {}
-        section = data.get("semantic", {})
-        if section.get("labels"):
-            labels = tuple(str(lb) for lb in section["labels"])
-        if section.get("tier_label_pattern"):
-            tier = str(section["tier_label_pattern"])
-    except FileNotFoundError:
-        logger.warning("⚠️  settings.yaml ausente; usando vocabulário default")
-    return SemanticConfig(labels=labels, tier_pattern=re.compile(tier))
+def load_semantic_config(profile: FamilyProfile | None = None) -> SemanticConfig:
+    """Vocabulário do domínio a partir do perfil de família ativo."""
+    profile = profile or load_family_profile()
+    return SemanticConfig(labels=profile.labels, tier_pattern=profile.tier_pattern)
 
 
 def _match_positions(text: str, config: SemanticConfig) -> list[int]:

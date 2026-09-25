@@ -1,0 +1,88 @@
+# =============================================================================
+# Perfil de família: Tabela de Frete Escalonada (Magalu)
+# =============================================================================
+
+# Marcadores que identificam a família (score de auto-detecção)
+detection_markers:
+  - "ID TABELA"
+  - "CEP INICIAL"
+  - "MODALIDADE DA OPERAÇÃO"
+
+# Rótulos colados pelo Excel (gaps geométricos zero) — camada semântica
+labels:
+  - "TIPO DE VEÍCULO"
+  - "CIDADE"
+  - "SIGLA"
+  - "CEP INICIAL"
+  - "CEP FINAL"
+  - "INTERIORIZAÇÃO"
+  - "PRAZO"
+  - "DIÁRIA"
+
+# Padrão dos rótulos de faixa escalonada (valores variam por tabela)
+tier_label_pattern: '(?i)(?:De\s+\d+(?:[.,]\d+)?\s+até\s+\d+(?:[.,]\d+)?|Acima\s+de\s+\d+(?:[.,]\d+)?)'
+
+# Célula == token funde com a célula seguinte (ex.: "R$" + "5,20")
+join_tokens:
+  - "R$"
+
+# Label de cabeçalho (prefixo) -> campo canônico do registro
+field_map:
+  "TIPO DE VEÍCULO": "tipo_veiculo"
+  "CIDADE": "cidade"
+  "SIGLA": "sigla"
+  "CEP INICIAL": "cep_inicial"
+  "CEP FINAL": "cep_final"
+  "INTERIORIZAÇÃO": "interiorizacao"
+  "PRAZO": "prazo"
+  "DIÁRIA": "diaria"
+
+# Assinatura de linha de dados:
+#   auto  → derivada do cabeçalho (ceps se houver colunas cep_*; senão dinheiro)
+#   cep_pairs / money → min_count ocorrências por linha
+data_row:
+  mode: "auto"
+  min_count: 2
+
+# Dinheiro: formato BR com vírgula decimal (outras famílias: ajustar aqui)
+money_pattern: '^(?:R\$\s*)?[\d.]+,\d{2}$'
+
+# 1 valor para N faixas: "fanout" replica marcando warning; "first" só a 1ª
+tier_single_value_policy: "fanout"
+
+# Preâmbulo: chave visual -> campo dados_transportador
+transportador_map:
+  "MODALIDADE DA OPERAÇÃO": "modalidade_operacao"
+  "OPERAÇÃO": "operacao"
+  "SIGLA": "sigla"
+  "RAZÃO SOCIAL": "razao_social"
+  "CNPJ": "cnpj"
+  "TELEFONE DO PARCEIRO": "telefone"
+  "E-MAIL DO PARCEIRO": "email"
+  "INICIO DA VIGÊNCIA": "inicio_vigencia"
+  "EMAIL DE QUEM CONFECCIONOU": "responsavel_confeccao"
+  "ID TABELA": "id_tabela"
+
+# Trilha de alterações (qualquer página)
+alteracoes:
+  marker: "ALTERAÇÕES DA TABELA"
+  map:
+    "CD": "cd"
+    "NOME DO ANALISTA": "nome_analista"
+    "DATA ALTERAÇÃO": "data_alteracao"
+    "TIPO ALTERAÇÃO": "tipo_alteracao"
+    "TIPO OPERÇÃO": "tipo_operacao"  # grafia conforme vem nos documentos
+
+# Cláusulas gerais: marcador de coluna (x0) ou startswith
+generalidades:
+  stop_prefixes: ["CONTRATADA", "EM CONFORMIDADE COM A LEGISLAÇÃO"]
+  junk_prefixes: ["DOCUSIGN"]
+  secoes:
+    pagamento:
+      startswith: ["QUINZENAL", "PAGAMENTO VÁLIDO"]
+    comprovante_entrega:
+      marker: "COMPROVANTE DE ENTREGA"
+    perda_idenizacao_restricao:
+      marker: "PERDAS, INDENIZAÇÕES e RESTRIÇÕES"
+    acareacoes:
+      marker: "ACAREAÇÕES"

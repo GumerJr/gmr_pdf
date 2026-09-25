@@ -223,18 +223,9 @@ def _collapse_spaces(text: str) -> str:
     return " ".join(text.split())
 
 
-def _load_join_tokens() -> tuple[str, ...]:
-    """Tokens colantes da seção ``spatial.cell_join_tokens`` do settings."""
-    default: tuple[str, ...] = ("R$",)
-    try:
-        with SETTINGS_FILE.open(encoding="utf-8") as fh:
-            data = yaml.safe_load(fh) or {}
-        tokens = data.get("spatial", {}).get("cell_join_tokens")
-        if tokens:
-            return tuple(str(t) for t in tokens)
-    except FileNotFoundError:
-        logger.warning("⚠️  settings.yaml ausente; usando tokens default")
-    return default
+def _default_join_tokens() -> tuple[str, ...]:
+    """Tokens colantes default (famílias podem sobrescrever via perfil)."""
+    return ("R$",)
 
 
 def _merge_join_tokens(
@@ -323,7 +314,10 @@ def build_grid(
     )
 
 
-def extract_grids(document: DocumentData) -> list[TableGrid]:
+def extract_grids(
+    document: DocumentData,
+    join_tokens: tuple[str, ...] | None = None,
+) -> list[TableGrid]:
     """Extrai os grids de cada página (um por grupo de orientação).
 
     Spans rotacionados são normalizados para o frame horizontal antes do
@@ -332,6 +326,7 @@ def extract_grids(document: DocumentData) -> list[TableGrid]:
     """
     config = _load_spatial_config()
     all_spans = vectorize_document(document)
+    tokens = join_tokens if join_tokens is not None else _default_join_tokens()
 
     def grids_for_page(page: PageData) -> list[TableGrid]:
         if page.needs_ocr:
@@ -346,7 +341,7 @@ def extract_grids(document: DocumentData) -> list[TableGrid]:
                     canonical,
                     page.number,
                     row_band_factor=config["row_band_factor"],
-                    cell_join_tokens=_load_join_tokens(),
+                    cell_join_tokens=tokens,
                 ),
                 orientation=orientation,
             )
