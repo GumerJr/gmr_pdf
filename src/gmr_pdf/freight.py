@@ -122,11 +122,32 @@ class DadosTransportador(BaseModel):
     id_tabela: str | None = None
 
 
+class AlteracoesTabela(BaseModel):
+    """Seção 'ALTERAÇÕES DA TABELA' (trilha de alterações do documento)."""
+
+    cd: str | None = None
+    nome_analista: str | None = None
+    data_alteracao: str | None = None
+    tipo_alteracao: str | None = None
+    tipo_operacao: str | None = None
+
+
+class Generalidades(BaseModel):
+    """Cláusulas gerais do documento, por seção (listas de textos)."""
+
+    pagamento: list[str] = Field(default_factory=list)
+    comprovante_entrega: list[str] = Field(default_factory=list)
+    perda_idenizacao_restricao: list[str] = Field(default_factory=list)
+    acareacoes: list[str] = Field(default_factory=list)
+
+
 class TabelaFrete(BaseModel):
-    """Documento completo: dados do transportador + dados da tarifa."""
+    """Documento completo: transportador + tarifa + alterações + cláusulas."""
 
     dados_transportador: DadosTransportador
     dados_tarifa: list[FreightRecord]
+    alteracoes_tabela: AlteracoesTabela = Field(default_factory=AlteracoesTabela)
+    generalidades: Generalidades = Field(default_factory=Generalidades)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -344,60 +365,65 @@ def _norm_key(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().rstrip(":").strip().upper()
 
 
-def _load_transportador_map() -> dict[str, str]:
-    """Mapeamento chave visual -> campo (chaves normalizadas)."""
-    default = {
-        "MODALIDADE DA OPERAÇÃO": "modalidade_operacao",
-        "OPERAÇÃO": "operacao",
-        "SIGLA": "sigla",
-        "RAZÃO SOCIAL": "razao_social",
-        "CNPJ": "cnpj",
-        "TELEFONE DO PARCEIRO": "telefone",
-        "E-MAIL DO PARCEIRO": "email",
-        "INICIO DA VIGÊNCIA": "inicio_vigencia",
-        "EMAIL DE QUEM CONFECCIONOU": "responsavel_confeccao",
-        "ID TABELA": "id_tabela",
-    }
+_DEFAULT_TRANSPORTADOR_MAP = {
+    "MODALIDADE DA OPERAÇÃO": "modalidade_operacao",
+    "OPERAÇÃO": "operacao",
+    "SIGLA": "sigla",
+    "RAZÃO SOCIAL": "razao_social",
+    "CNPJ": "cnpj",
+    "TELEFONE DO PARCEIRO": "telefone",
+    "E-MAIL DO PARCEIRO": "email",
+    "INICIO DA VIGÊNCIA": "inicio_vigencia",
+    "EMAIL DE QUEM CONFECCIONOU": "responsavel_confeccao",
+    "ID TABELA": "id_tabela",
+}
+
+_DEFAULT_ALTERACOES_MARK = "ALTERAÇÕES DA TABELA"
+_DEFAULT_ALTERACOES_MAP = {
+    "CD": "cd",
+    "NOME DO ANALISTA": "nome_analista",
+    "DATA ALTERAÇÃO": "data_alteracao",
+    "TIPO ALTERAÇÃO": "tipo_alteracao",
+    "TIPO OPERÇÃO": "tipo_operacao",
+}
+
+_DEFAULT_GENERALIDADES_SECTIONS = {
+    "pagamento": {"startswith": ["QUINZENAL", "PAGAMENTO VÁLIDO"]},
+    "comprovante_entrega": {"marker": "COMPROVANTE DE ENTREGA"},
+    "perda_idenizacao_restricao": {"marker": "PERDAS, INDENIZAÇÕES e RESTRIÇÕES"},
+    "acareacoes": {"marker": "ACAREAÇÕES"},
+}
+_DEFAULT_STOP_PREFIXES = ("CONTRATADA",)
+_DEFAULT_JUNK_PREFIXES = ("DOCUSIGN",)
+
+
+def _load_freight_section() -> dict[str, Any]:
     try:
         with SETTINGS_FILE.open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
-        raw = data.get("freight", {}).get("transportador_map")
-        if raw:
-            return {_norm_key(str(k)): str(v) for k, v in raw.items()}
+        section = data.get("freight", {})
+        return section if isinstance(section, dict) else {}
     except FileNotFoundError:
-        logger.warning("⚠️  settings.yaml ausente; usando transportador_map default")
-    return {_norm_key(k): v for k, v in default.items()}
+        logger.warning("⚠️  settings.yaml ausente; usando defaults de freight")
+        return {}
 
 
-def parse_transportador(
-    grid: TableGrid,
-    header_row: int,
-    key_to_field: dict[str, str] | None = None,
-) -> DadosTransportador:
-    """Extrai os dados do transportador do preâmbulo (linhas antes do
-    cabeçalho da tabela).
+def _load_key_map(section_key: str, default: dict[str, str]) -> dict[str, str]:
+    """Mapeamento chave visual normalizada -> campo (de uma seção do YAML)."""
+    raw = _load_freight_section().get(section_key)
+    source = raw if isinstance(raw, dict) else default
+    return {_norm_key(str(k)): str(v) for k, v in source.items()}
 
-    Dois padrões de formatação, ambos observados em tabelas reais:
+
+def _collect_key_values(
+    rows: list[list[str]], mapping: dict[str, str]
+) -> dict[str, str]:
+    """Extrai pares chave→valor de linhas de texto (2 padrões).
 
     1. ``CHAVE | VALOR`` na mesma linha;
-    2. Chave sozinha numa linha e o valor na linha seguinte.
-
-    Se a linha seguinte contiver outra chave, o valor anterior fica
-    ``None`` — ausência explícita, nunca um valor inventado.
+    2. Chave sozinha com o valor na linha seguinte (se essa próxima linha
+       for outra chave, o valor permanece ausente — nunca inventado).
     """
-    mapping = key_to_field or _load_transportador_map()
-
-    by_row: dict[int, list[Cell]] = {}
-    for cell in grid.cells:
-        if cell.row_index < header_row:
-            by_row.setdefault(cell.row_index, []).append(cell)
-
-    rows: list[list[str]] = [
-        [c.text for c in sorted(cells, key=lambda c: c.col_index) if c.text.strip()]
-        for _, cells in sorted(by_row.items())
-    ]
-    rows = [r for r in rows if r]
-
     sorted_keys = sorted(mapping, key=len, reverse=True)
 
     def field_of(text: str) -> str | None:
@@ -428,8 +454,73 @@ def parse_transportador(
                         consume_next = True
             pos += 1
         index += 2 if consume_next else 1
+    return collected
 
-    return DadosTransportador(**collected)
+
+def _rows_as_text(grid: TableGrid) -> dict[int, list[str]]:
+    """Linhas do grid como listas de textos não vazios, na ordem."""
+    return {
+        row: [c.text.strip() for c in cells]
+        for row, cells in _rows_cells(grid).items()
+    }
+
+
+def _rows_cells(grid: TableGrid) -> dict[int, list[Cell]]:
+    """Linhas do grid como listas de células não vazias (texto + bbox)."""
+    by_row: dict[int, list[Cell]] = {}
+    for cell in grid.cells:
+        by_row.setdefault(cell.row_index, []).append(cell)
+    return {
+        row: [c for c in sorted(cells, key=lambda c: c.col_index) if c.text.strip()]
+        for row, cells in sorted(by_row.items())
+    }
+
+
+def parse_transportador(
+    grid: TableGrid,
+    header_row: int,
+    key_to_field: dict[str, str] | None = None,
+) -> DadosTransportador:
+    """Dados do transportador: preâmbulo (linhas antes do cabeçalho)."""
+    mapping = key_to_field or _load_key_map(
+        "transportador_map", _DEFAULT_TRANSPORTADOR_MAP
+    )
+    rows_text = _rows_as_text(grid)
+    rows = [texts for row, texts in rows_text.items() if row < header_row]
+    return DadosTransportador(**_collect_key_values(rows, mapping))
+
+
+def parse_alteracoes(grids: list[TableGrid]) -> AlteracoesTabela:
+    """Seção 'ALTERAÇÕES DA TABELA' — pode estar em qualquer página.
+
+    Localizada pelo marcador configurado (``freight.alteracoes.marker``);
+    as linhas seguintes são varridas como pares chave→valor. Ausência da
+    seção ou de valores individuais resulta em campos ``None`` explícitos.
+    """
+    section = _load_freight_section().get("alteracoes", {})
+    marker = _norm_key(str(section.get("marker") or _DEFAULT_ALTERACOES_MARK))
+    raw_map = section.get("map")
+    source = raw_map if isinstance(raw_map, dict) else _DEFAULT_ALTERACOES_MAP
+    alter_map = {_norm_key(str(k)): str(v) for k, v in source.items()}
+
+    for grid in grids:
+        rows_text = _rows_as_text(grid)
+        row_ids = list(rows_text)
+        marker_idx = next(
+            (
+                i
+                for i, row in enumerate(row_ids)
+                if any(_norm_key(t).startswith(marker) for t in rows_text[row])
+            ),
+            None,
+        )
+        if marker_idx is None:
+            continue
+        rows = [rows_text[row] for row in row_ids[marker_idx + 1 :]]
+        return AlteracoesTabela(**_collect_key_values(rows, alter_map))
+
+    logger.debug("🔍 Seção de alterações não encontrada no documento")
+    return AlteracoesTabela()
 
 
 def parse_tabela_frete(grid: TableGrid) -> TabelaFrete | None:
@@ -455,5 +546,178 @@ def parse_tabela_frete(grid: TableGrid) -> TabelaFrete | None:
     return TabelaFrete(
         dados_transportador=transportador,
         dados_tarifa=records,
+        warnings=warnings,
+    )
+
+
+@dataclass(frozen=True)
+class _SectionSpec:
+    """Especificação de seção de cláusulas (marcador ou startswith)."""
+
+    field: str
+    marker: str | None
+    startswiths: tuple[str, ...]
+
+
+def _load_generalidades_config() -> tuple[
+    list[_SectionSpec], tuple[str, ...], tuple[str, ...]
+]:
+    """Seções, stop-prefixes e junk-prefixes (settings.yaml freight.generalidades)."""
+    section = _load_freight_section().get("generalidades", {})
+    raw_sections = section.get("secoes")
+    source = (
+        raw_sections if isinstance(raw_sections, dict)
+        else _DEFAULT_GENERALIDADES_SECTIONS
+    )
+    specs: list[_SectionSpec] = []
+    for field, cfg in source.items():
+        marker = cfg.get("marker")
+        startswiths = tuple(_norm_key(s) for s in cfg.get("startswith", []))
+        specs.append(
+            _SectionSpec(
+                field=str(field),
+                marker=_norm_key(str(marker)) if marker else None,
+                startswiths=startswiths,
+            )
+        )
+    stop = tuple(
+        _norm_key(s) for s in section.get("stop_prefixes", _DEFAULT_STOP_PREFIXES)
+    )
+    junk = tuple(
+        _norm_key(s) for s in section.get("junk_prefixes", _DEFAULT_JUNK_PREFIXES)
+    )
+    return specs, stop, junk
+
+
+def _is_data_row(cells: list[Cell]) -> bool:
+    """Linha de dados da tabela (contém CEPs ou valores) — excluída das cláusulas."""
+    texts = [c.text for c in cells]
+    ceps = sum(1 for t in texts if _CEP_RE.fullmatch(t))
+    money = sum(1 for t in texts if _MONEY_RE.fullmatch(t))
+    return ceps >= 2 or money >= 1
+
+
+def parse_generalidades(grids: list[TableGrid]) -> Generalidades:
+    """Extrai as cláusulas gerais por seção, cruzando páginas.
+
+    Regras determinísticas (configuráveis em ``freight.generalidades``):
+
+    - ``marker``: abre a seção na coluna x do marcador; textos seguintes
+      **na mesma coluna** (sobreposição horizontal) entram nela — inclusive
+      na página seguinte (continuação natural de cláusulas quebradas);
+    - ``startswith``: coleta qualquer célula que comece com o padrão
+      (seções sem título, ex.: textos de pagamento);
+    - ``stop_prefixes`` encerram todas as seções abertas (ex.: início do
+      bloco de assinaturas) e ``junk_prefixes`` são sempre descartados
+      (ex.: cabeçalho DocuSign);
+    - linhas de dados da tabela de tarifas nunca entram nas cláusulas.
+    """
+    specs, stop_prefixes, junk_prefixes = _load_generalidades_config()
+    marker_specs = [s for s in specs if s.marker]
+    plain_specs = [s for s in specs if not s.marker]
+
+    collected: dict[str, list[str]] = {s.field: [] for s in specs}
+    active: dict[str, float] = {}  # campo -> x0 da coluna do marcador
+
+    for grid in grids:
+        for cells in _rows_cells(grid).values():
+            norms = [_norm_key(c.text) for c in cells]
+
+            if any(n.startswith(stop) for n in norms for stop in stop_prefixes):
+                active.clear()
+                continue
+
+            marker_cells: set[int] = set()
+            opened_now: dict[str, float] = {}
+            for pos, norm in enumerate(norms):
+                for spec in marker_specs:
+                    if norm.startswith(spec.marker or "\x00"):
+                        opened_now[spec.field] = cells[pos].bbox[0]
+                        marker_cells.add(pos)
+            if opened_now:
+                # novo marcador = novo bloco: seções do bloco anterior fecham;
+                # marcadores da MESMA linha coexistem (colunas lado a lado)
+                active = opened_now
+
+            if _is_data_row(cells):
+                continue
+
+            for pos, cell in enumerate(cells):
+                norm = norms[pos]
+                if pos in marker_cells or any(
+                    norm.startswith(j) for j in junk_prefixes
+                ):
+                    continue
+                for spec in plain_specs:
+                    if norm.startswith(spec.startswiths):
+                        collected[spec.field].append(cell.text)
+                        break
+                if not active:
+                    continue
+                # âncora pela borda ESQUERDA (x0): cláusulas são alinhadas à
+                # esquerda — o centro varia com o comprimento da linha
+                target = min(
+                    active.items(),
+                    key=lambda item: abs(cell.bbox[0] - item[1]),
+                )[0]
+                collected[target].append(cell.text)
+
+    result = Generalidades(**collected)
+    encontradas = sum(1 for v in collected.values() if v)
+    logger.info(
+        "📜 Generalidades extraídas: %d/%d seções com conteúdo",
+        encontradas,
+        len(collected),
+    )
+    return result
+
+
+def parse_tabela_documento(grids: list[TableGrid]) -> TabelaFrete | None:
+    """Agrega o documento inteiro numa única ``TabelaFrete``.
+
+    - ``dados_transportador``: preâmbulo do primeiro grid com tabela;
+    - ``dados_tarifa``: registros de **todos** os grids com cabeçalho
+      (tabelas que cruzam páginas são unidas — mitigação R5);
+    - ``alteracoes_tabela``: seção localizada em qualquer página.
+
+    Retorna ``None`` quando o documento não contém tabela de frete.
+    """
+    field_map = _load_field_map()
+    transportador: DadosTransportador | None = None
+    records: list[FreightRecord] = []
+    warnings: list[str] = []
+
+    for grid in grids:
+        detected = _detect_header(grid, field_map)
+        if detected is None:
+            continue
+        header_cells, _, tier_specs, fixed_specs = detected
+        header_row = header_cells[0].row_index
+        page_records, page_warnings = _extract_records(
+            grid, header_row, tier_specs, fixed_specs
+        )
+        records.extend(page_records)
+        warnings.extend(page_warnings)
+        if transportador is None:
+            transportador = parse_transportador(grid, header_row)
+
+    if transportador is None:
+        logger.warning("⚠️  Documento sem tabela de frete — agregação ignorada")
+        return None
+
+    alteracoes = parse_alteracoes(grids)
+    generalidades = parse_generalidades(grids)
+    tem_alteracoes = alteracoes.model_dump(exclude_none=True)
+    logger.info(
+        "📑 Documento agregado: id_tabela=%s, %d registro(s), alterações: %s",
+        transportador.id_tabela,
+        len(records),
+        "encontradas" if tem_alteracoes else "não encontradas",
+    )
+    return TabelaFrete(
+        dados_transportador=transportador,
+        dados_tarifa=records,
+        alteracoes_tabela=alteracoes,
+        generalidades=generalidades,
         warnings=warnings,
     )

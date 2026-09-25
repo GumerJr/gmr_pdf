@@ -11,11 +11,16 @@ from gmr_pdf.extractor import (
     extract_page,
 )
 from gmr_pdf.freight import (
+    AlteracoesTabela,
     DadosTransportador,
     FreightRecord,
     FreightTable,
+    Generalidades,
     TabelaFrete,
+    parse_alteracoes,
     parse_freight_grid,
+    parse_generalidades,
+    parse_tabela_documento,
     parse_tabela_frete,
 )
 from gmr_pdf.json_export import (
@@ -30,11 +35,13 @@ from gmr_pdf.spatial import TableGrid, extract_grids
 from gmr_pdf.vectorize import SpansVector, vectorize_document
 
 __all__ = [
+    "AlteracoesTabela",
     "BlockData",
     "DadosTransportador",
     "DocumentData",
     "FreightRecord",
     "FreightTable",
+    "Generalidades",
     "GoogleDriveClient",
     "LineData",
     "PageData",
@@ -49,7 +56,10 @@ __all__ = [
     "extraction_payload",
     "get_drive_client",
     "get_settings",
+    "parse_alteracoes",
     "parse_freight_grid",
+    "parse_generalidades",
+    "parse_tabela_documento",
     "parse_tabela_frete",
     "reconstruct_document",
     "save_json",

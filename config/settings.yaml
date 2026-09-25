@@ -65,3 +65,27 @@ freight:
     "INICIO DA VIGÊNCIA": "inicio_vigencia"
     "EMAIL DE QUEM CONFECCIONOU": "responsavel_confeccao"
     "ID TABELA": "id_tabela"
+  # Seção "ALTERAÇÕES DA TABELA" (pode estar em qualquer página)
+  alteracoes:
+    marker: "ALTERAÇÕES DA TABELA"
+    map:
+      "CD": "cd"
+      "NOME DO ANALISTA": "nome_analista"
+      "DATA ALTERAÇÃO": "data_alteracao"
+      "TIPO ALTERAÇÃO": "tipo_alteracao"
+      "TIPO OPERÇÃO": "tipo_operacao"  # grafia conforme vem nos documentos
+  # Cláusulas/generalidades: seções por marcador de coluna ou startswith
+  generalidades:
+    # encerram seções abertas: início do bloco de assinaturas + cláusula
+    # final de conformidade eletrônica (não pertence a nenhuma seção)
+    stop_prefixes: ["CONTRATADA", "EM CONFORMIDADE COM A LEGISLAÇÃO"]
+    junk_prefixes: ["DOCUSIGN"]     # ruído ignorado (cabeçalho de envelope)
+    secoes:
+      pagamento:
+        startswith: ["QUINZENAL", "PAGAMENTO VÁLIDO"]
+      comprovante_entrega:
+        marker: "COMPROVANTE DE ENTREGA"
+      perda_idenizacao_restricao:
+        marker: "PERDAS, INDENIZAÇÕES e RESTRIÇÕES"
+      acareacoes:
+        marker: "ACAREAÇÕES"

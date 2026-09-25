@@ -8,10 +8,55 @@ from gmr_pdf.extractor import extract_document
 from gmr_pdf.freight import (
     FreightTier,
     parse_freight_grid,
+    parse_generalidades,
     parse_tabela_frete,
     parse_transportador,
 )
 from gmr_pdf.spatial import extract_grids
+
+
+def _doc_clausulas_pdf_bytes() -> bytes:
+    """Documento 2 páginas com cláusulas de 2 colunas e continuação."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=595, height=842)
+    for x, text in (
+        (40.0, "TIPO DE VEÍCULO"),
+        (130.0, "CIDADE"),
+        (200.0, "SIGLA"),
+        (240.0, "CEP INICIAL"),
+        (330.0, "CEP FINAL"),
+    ):
+        page.insert_text((x, 100), text, fontsize=8)
+    for x, text in (
+        (40.0, "TODOS"),
+        (130.0, "PALHOÇA"),
+        (200.0, "HPLH"),
+        (240.0, "88130-000"),
+        (330.0, "88139-999"),
+    ):
+        page.insert_text((x, 140), text, fontsize=8)
+    # pagamento (sem marcador, por startswith)
+    page.insert_text((40, 200), "Quinzenal, 30 dias para pagamento", fontsize=8)
+    pagamento2 = "Pagamento válido somente com baixas mobile"
+    page.insert_text((40, 225), pagamento2, fontsize=8)
+    # cláusulas em duas colunas
+    page.insert_text((40, 260), "COMPROVANTE DE ENTREGA:", fontsize=8)
+    page.insert_text((320, 260), "PERDAS, INDENIZAÇÕES e RESTRIÇÕES:", fontsize=8)
+    comprovante1 = "Comprovante capturado no sistema eletrônico"
+    page.insert_text((40, 285), comprovante1, fontsize=8)
+    page.insert_text((320, 285), "A MAGALOG incluirá nos fechamentos", fontsize=8)
+    page.insert_text((40, 310), "Caso a CONTRATADA localize uma encomenda", fontsize=8)
+
+    page2 = doc.new_page(width=595, height=842)
+    page2.insert_text((40, 60), "Docusign Envelope ID: 1234", fontsize=8)
+    page2.insert_text((40, 90), "de posse da mercadoria, não devolver", fontsize=8)
+    page2.insert_text((40, 130), "ACAREAÇÕES:", fontsize=8)
+    page2.insert_text((40, 160), "Em caso de reclamação do cliente", fontsize=8)
+    page2.insert_text((40, 190), "CONTRATADA", fontsize=8)
+    page2.insert_text((40, 220), "texto pós-assinatura não entra", fontsize=8)
+    data = doc.tobytes()
+    doc.close()
+    return data
 
 
 def _doc_completo_pdf_bytes() -> bytes:
@@ -133,6 +178,60 @@ def test_parse_tabela_frete_completa() -> None:
     assert len(tabela.dados_tarifa) == 1
     assert tabela.dados_tarifa[0].cidade == "PALHOÇA"
     assert tabela.dados_tarifa[0].cep_inicial == "88130-000"
+
+
+def test_parse_generalidades_secoes() -> None:
+    """Cláusulas por marcador de coluna, startswith e continuação de página."""
+    grids = extract_grids(extract_document(_doc_clausulas_pdf_bytes()))
+    g = parse_generalidades(grids)
+
+    assert g.pagamento == [
+        "Quinzenal, 30 dias para pagamento",
+        "Pagamento válido somente com baixas mobile",
+    ]
+    assert g.comprovante_entrega == [
+        "Comprovante capturado no sistema eletrônico",
+        "Caso a CONTRATADA localize uma encomenda",
+        "de posse da mercadoria, não devolver",  # continuação da quebra de página
+    ]
+    assert g.perda_idenizacao_restricao == ["A MAGALOG incluirá nos fechamentos"]
+    assert g.acareacoes == ["Em caso de reclamação do cliente"]
+    # junk (Docusign) e texto pós-stop (bloco de assinaturas) nunca entram
+    todos = (
+        g.pagamento
+        + g.comprovante_entrega
+        + g.perda_idenizacao_restricao
+        + g.acareacoes
+    )
+    assert all("Docusign" not in t for t in todos)
+    assert "texto pós-assinatura não entra" not in todos
+
+
+def test_parse_alteracoes_secao() -> None:
+    """Seção ALTERAÇÕES DA TABELA localizada pelo marcador entre páginas."""
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((40, 100), "ALTERAÇÕES DA TABELA:", fontsize=8)
+    page.insert_text((40, 130), "CD", fontsize=8)
+    page.insert_text((200, 130), "HLDB", fontsize=8)
+    page.insert_text((40, 160), "Nome do analista", fontsize=8)
+    page.insert_text((200, 160), "DOUGLAS GABRIEL", fontsize=8)
+    page.insert_text((40, 190), "Data alteração", fontsize=8)
+    page.insert_text((40, 220), "Tipo alteração", fontsize=8)
+    page.insert_text((200, 220), "Atualização de abrangencia", fontsize=8)
+    data = doc.tobytes()
+    doc.close()
+
+    from gmr_pdf.freight import parse_alteracoes
+
+    grids = extract_grids(extract_document(data))
+    alt = parse_alteracoes(grids)
+    assert alt.cd == "HLDB"
+    assert alt.nome_analista == "DOUGLAS GABRIEL"
+    assert alt.data_alteracao is None  # chave sem valor — explicitamente vazia
+    assert alt.tipo_alteracao == "Atualização de abrangencia"
 
 
 def test_br_money_parsing_variants() -> None:

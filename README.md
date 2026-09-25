@@ -117,9 +117,27 @@ tabela = parse_freight_grid(grids[0])   # None se não houver cabeçalho
         {"rotulo": "De 2,01 até 4,00", "valor": "5.50"}
       ]
     }
-  ]
+  ],
+  "alteracoes_tabela": {
+    "cd": "HLDB", "nome_analista": "DOUGLAS GABRIEL DE OLIVEIRA",
+    "data_alteracao": null,
+    "tipo_alteracao": "Atualização de abrangencia global - ...",
+    "tipo_operacao": "Last Mille (Entrega porta a porta)"
+  },
+  "generalidades": {
+    "pagamento": ["Quinzenal, 30 dias para pagamento", "..."],
+    "comprovante_entrega": ["Comprovante capturado no sistema eletrônico da CONTRATANTE", "..."],
+    "perda_idenizacao_restricao": ["A MAGALOG incluirá nos fechamentos...", "..."],
+    "acareacoes": ["Em caso de reclamação do cliente...", "..."]
+  }
 }
 ```
+
+Regras de coleta de cláusulas (todas em `settings.yaml` → `freight.generalidades`):
+seções abrem por **marcador de coluna** (x₀) ou por **padrão startswith**; um novo
+marcador fecha o bloco anterior; `stop_prefixes` encerram seções (bloco de
+assinaturas / cláusula de conformidade); `junk_prefixes` eliminam ruídos (DocuSign);
+linhas de dados nunca entram em cláusulas; cláusulas fluem entre páginas.
 
 ## Qualidade
 
