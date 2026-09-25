@@ -53,3 +53,15 @@ freight:
     "INTERIORIZAÇÃO": "interiorizacao"
     "PRAZO": "prazo"
     "DIÁRIA": "diaria"
+  # Preâmbulo: chaves visuais -> campos de dados_transportador
+  transportador_map:
+    "MODALIDADE DA OPERAÇÃO": "modalidade_operacao"
+    "OPERAÇÃO": "operacao"
+    "SIGLA": "sigla"
+    "RAZÃO SOCIAL": "razao_social"
+    "CNPJ": "cnpj"
+    "TELEFONE DO PARCEIRO": "telefone"
+    "E-MAIL DO PARCEIRO": "email"
+    "INICIO DA VIGÊNCIA": "inicio_vigencia"
+    "EMAIL DE QUEM CONFECCIONOU": "responsavel_confeccao"
+    "ID TABELA": "id_tabela"

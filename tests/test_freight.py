@@ -5,8 +5,45 @@ from decimal import Decimal
 import pymupdf
 
 from gmr_pdf.extractor import extract_document
-from gmr_pdf.freight import FreightTier, parse_freight_grid
+from gmr_pdf.freight import (
+    FreightTier,
+    parse_freight_grid,
+    parse_tabela_frete,
+    parse_transportador,
+)
 from gmr_pdf.spatial import extract_grids
+
+
+def _doc_completo_pdf_bytes() -> bytes:
+    """Documento com preâmbulo (2 padrões) + cabeçalho + linha de dados."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=595, height=842)
+    # padrão 1: CHAVE | VALOR na mesma linha
+    page.insert_text((40, 60), "MODALIDADE DA OPERAÇÃO", fontsize=8)
+    page.insert_text((300, 60), "LAST MILE", fontsize=8)
+    page.insert_text((40, 85), "ID TABELA", fontsize=8)
+    page.insert_text((300, 85), "ID00999", fontsize=8)
+    # padrão 2: chave sozinha, valor na linha seguinte
+    page.insert_text((40, 110), "TELEFONE DO PARCEIRO", fontsize=8)
+    page.insert_text((40, 135), "47 99999-0000", fontsize=8)
+    # cabeçalho da tabela de tarifas
+    for x, text in (
+        (40.0, "TIPO DE VEÍCULO"),
+        (130.0, "CIDADE"),
+        (200.0, "SIGLA"),
+        (240.0, "CEP INICIAL"),
+        (330.0, "CEP FINAL"),
+    ):
+        page.insert_text((x, 200), text, fontsize=8)
+    for (x, _), text in zip(
+        ((40.0, ""), (130.0, ""), (200.0, ""), (240.0, ""), (330.0, "")),
+        ("TODOS", "PALHOÇA", "HPLH", "88130-000", "88139-999"),
+        strict=True,
+    ):
+        page.insert_text((x, 240), text, fontsize=8)
+    data = doc.tobytes()
+    doc.close()
+    return data
 
 
 def _freight_pdf_bytes() -> bytes:
@@ -68,6 +105,34 @@ def test_parse_freight_grid_without_header_returns_none() -> None:
     doc.close()
     grids = extract_grids(extract_document(data))
     assert parse_freight_grid(grids[0]) is None
+
+
+def test_parse_transportador_both_patterns() -> None:
+    """Preâmbulo: chave|valor na linha E chave sozinha com valor abaixo."""
+    grids = extract_grids(extract_document(_doc_completo_pdf_bytes()))
+    grid = grids[0]
+    # cabeçalho está na última linha antes dos dados (row com labels)
+    from gmr_pdf.freight import _find_header_row, _load_field_map
+
+    header_row = _find_header_row(grid, tuple(_load_field_map()))
+    dados = parse_transportador(grid, header_row[0].row_index)
+
+    assert dados.modalidade_operacao == "LAST MILE"
+    assert dados.id_tabela == "ID00999"
+    assert dados.telefone == "47 99999-0000"
+    # campos ausentes ficam None explícito (nunca inventados)
+    assert dados.cnpj is None
+
+
+def test_parse_tabela_frete_completa() -> None:
+    grids = extract_grids(extract_document(_doc_completo_pdf_bytes()))
+    tabela = parse_tabela_frete(grids[0])
+
+    assert tabela is not None
+    assert tabela.dados_transportador.id_tabela == "ID00999"
+    assert len(tabela.dados_tarifa) == 1
+    assert tabela.dados_tarifa[0].cidade == "PALHOÇA"
+    assert tabela.dados_tarifa[0].cep_inicial == "88130-000"
 
 
 def test_br_money_parsing_variants() -> None:

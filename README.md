@@ -26,11 +26,13 @@ spatial.py        Grid invisível: rotação canônica (landscape) → linhas po
 semantic.py       Rótulos fundidos com gap zero → vocabulário do domínio (settings.yaml)
    │
    ▼
-freight.py        Registros tipados (pydantic) com proveniência (page/row)
+freight.py        TabelaFrete: dados_transportador + dados_tarifa (pydantic,
+                  tipados, com proveniência page/row)
    │
    ▼
 Saídas            outputs/extracao_*.json (bruto) · tabelas_*.json (grid)
-                  fretes_*.json · fretes_*.csv (análise/cadastro)
+                  fretes_*.json · fretes_*.csv (tarifas p/ análise)
+                  tabela_*.json — documento completo estruturado ⬇
 ```
 
 ## Estrutura
@@ -86,6 +88,37 @@ pdf = get_drive_client().download_pdf("<file_id>")
 documento = extract_document(pdf)
 grids = [expand_grid_labels(g) for g in extract_grids(documento)]
 tabela = parse_freight_grid(grids[0])   # None se não houver cabeçalho
+```
+
+## Estrutura de saída (`tabela_<file_id>.json`)
+
+```jsonc
+{
+  "dados_transportador": {
+    "modalidade_operacao": "LAST MILE",
+    "operacao": "AGENCIADOR",
+    "sigla": "HPLH",
+    "razao_social": "R LUCHTENBERG EXPRESS LTDA",
+    "cnpj": "57804838000155",
+    "telefone": "47 99249-9352",
+    "email": "rluchtenbergexpress@gmail.com",
+    "inicio_vigencia": "16/04/2026",
+    "responsavel_confeccao": "douglas.gabriel@magazineluiza.com.br",
+    "id_tabela": "ID01175"
+  },
+  "dados_tarifa": [
+    {
+      "page": 0, "row": 15,
+      "tipo_veiculo": "TODOS", "cidade": "ÁGUAS MORNAS", "sigla": "HPLH",
+      "cep_inicial": "88150-000", "cep_final": "88159-999",
+      "interiorizacao": "Capital I", "prazo": null, "diaria": "50",
+      "faixas": [
+        {"rotulo": "De 0 até 2", "valor": "5.20"},
+        {"rotulo": "De 2,01 até 4,00", "valor": "5.50"}
+      ]
+    }
+  ]
+}
 ```
 
 ## Qualidade

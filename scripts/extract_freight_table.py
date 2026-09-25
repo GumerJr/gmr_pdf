@@ -17,9 +17,16 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from pydantic import RootModel
+
 from gmr_pdf.drive import get_drive_client
 from gmr_pdf.extractor import extract_document
-from gmr_pdf.freight import FreightTable, parse_freight_grid
+from gmr_pdf.freight import (
+    FreightTable,
+    TabelaFrete,
+    parse_freight_grid,
+    parse_tabela_frete,
+)
 from gmr_pdf.json_export import extraction_payload, save_json, tables_payload
 from gmr_pdf.logger import get_logger
 from gmr_pdf.semantic import expand_grid_labels
@@ -28,6 +35,8 @@ from gmr_pdf.spatial import extract_grids
 logger = get_logger("gmr_pdf.pipeline")
 
 OUTPUT_DIR = Path("outputs")
+
+TabelasReport = RootModel[list[TabelaFrete]]
 
 
 def save_freights_csv(tables: Sequence[FreightTable], path: Path) -> Path:
@@ -93,6 +102,12 @@ def main() -> None:
         )
         save_json(report, OUTPUT_DIR / f"fretes_{file_id}.json")
         save_freights_csv(freight_tables, OUTPUT_DIR / f"fretes_{file_id}.csv")
+
+    # documento completo: dados_transportador + dados_tarifa
+    tabelas = [t for g in grids if (t := parse_tabela_frete(g)) is not None]
+    if tabelas:
+        report = TabelasReport(root=tabelas)
+        save_json(report, OUTPUT_DIR / f"tabela_{file_id}.json")
 
     logger.info("🏁 Pipeline concluído com sucesso")
 
