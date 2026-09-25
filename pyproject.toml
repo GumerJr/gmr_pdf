@@ -24,12 +24,22 @@ packages = ["src/gmr_pdf"]
 dev = [
     "ipykernel>=7.3.0",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.16.8",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "--cov=src/gmr_pdf --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/gmr_pdf"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_also = ["if __name__ == .__main__.:", "def __repr__"]
 
 [tool.ruff]
 target-version = "py314"

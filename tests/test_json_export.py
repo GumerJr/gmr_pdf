@@ -1,8 +1,12 @@
 """Testes da exportação JSON validada por pydantic."""
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
+
+import gmr_pdf.settings as settings_module
 from gmr_pdf.extractor import extract_document
 from gmr_pdf.json_export import (
     extraction_payload,
@@ -11,6 +15,16 @@ from gmr_pdf.json_export import (
     to_json,
 )
 from gmr_pdf.spatial import extract_grids
+
+
+@pytest.fixture(autouse=True)
+def settings_isoladas(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Isola os testes de exportação do .env local (portável p/ CI)."""
+    monkeypatch.setenv("GMR_GOOGLE_SERVICE_ACCOUNT_FILE", "fake.json")
+    monkeypatch.setenv("GMR_GOOGLE_DRIVE_FOLDER_ID", "folder-teste-123")
+    settings_module.get_settings.cache_clear()
+    yield
+    settings_module.get_settings.cache_clear()
 
 
 def test_extraction_payload_validates_and_serializes(
@@ -25,7 +39,7 @@ def test_extraction_payload_validates_and_serializes(
 
     data = json.loads(to_json(payload))
     assert data["app"] == "gmr_pdf"
-    assert data["folder_id"] == "1qATGIABfc_wtXlSTyI8LjZgr0JXZWE0Q"
+    assert data["folder_id"] == "folder-teste-123"
     # timestamp com fuso UTC-3 (Brasília) — trilha de auditoria
     assert data["generated_at"].endswith("-03:00")
 

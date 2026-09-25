@@ -1,5 +1,7 @@
 # gmr_pdf
 
+[![CI](https://github.com/GumerJr/gmr_pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/GumerJr/gmr_pdf/actions/workflows/ci.yml)
+
 Pipeline auditável para extração estruturada de **tabelas de frete** (e outros PDFs) a partir do
 Google Drive. Projetado para documentos originados de **Excel → PDF** (rotacionados, sem bordas,
 com spans fundidos), onde o PDF é o **artefato legal assinado** — por isso o Excel de origem
@@ -162,9 +164,12 @@ linhas de dados nunca entram em cláusulas; cláusulas fluem entre páginas.
 ## Qualidade
 
 ```bash
-uv run ruff check src scripts tests   # linter (regras ANN/RUF/UP/B/SIM/C4)
-uv run pytest                         # 58 testes
+uv run ruff check src tests scripts   # linter (regras ANN/RUF/UP/B/SIM/C4)
+uv run pytest                         # 58 testes + cobertura (gate: ≥ 85%)
 ```
+
+**CI**: GitHub Actions roda ruff + pytest com gate de cobertura em cada push/PR
+para `main` (`.github/workflows/ci.yml`).
 
 ## Princípios
 
